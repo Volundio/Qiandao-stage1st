@@ -1,18 +1,75 @@
-# Qiandao-stage1st S1论坛 签到与挂机
-Discuz! X3.4 论坛挂机一小时循环 For Qiandao 签到框架
-https://github.com/qiandao-today/templates
-### 现已合并进主分支，无需手动添加此仓库
-## 一小时挂机，点击定时选择cron效果更好：10 * * * *
-## Response Error : HTTP 599: Operation timed out after 30001 milliseconds
-## 网络/论坛服务器不稳定可能导致超时失效，可以选择手动更改环境配置把超时时长改久一点
+# Qiandao-stage1st — S1论坛（Stage1st）挂机刷在线时长与签到模板
 
+适配新版 **[Stage1st 论坛](https://stage1st.com/2b/forum.php)**（`stage1st.com` / Discuz! X3.5）与 **[qd-today/qd](https://github.com/qd-today/qd)** 定时任务框架的 HAR 模板库，符合 [qd-today/templates](https://github.com/qd-today/templates) 公共模板仓库规范。
 
-+ 我的模板-公共模板-已注册仓库-注册
-+ 仓库名: S1-Antiky
-+ 仓库URL：https://github.com/Antiky/Qiandao-stage1st
-+ 仓库分支：master
-+ 启用加速
+> 本项目基于 [Antiky/Qiandao-stage1st](https://github.com/Antiky/Qiandao-stage1st) 修复与重构，针对原域名 `bbs.saraba1st.com` 停用、论坛升级至 Discuz! X3.5、旧版签到插件下线以及原挂机模板 `HTTP 599` 超时等问题进行了全面重制。
 
-saraba1st：签到，用户名+密码 登陆，默认间隔即可
-saraba1st-1h：挂机双25.5分3063秒循环，推荐间隔537s
+---
 
+## 📦 模板列表
+
+| 模板名称 | 文件名 | 功能说明 | 所需变量 | 推荐定时设置 |
+| :--- | :--- | :--- | :--- | :--- |
+| **S1论坛一小时挂机** | `stage1st-1h.har` | **核心模板**：自动保持在线会话并累加论坛**在线时长**（`1 小时 = +10 总积分`），每轮结束自动触发积分与用户组核算 | `username`、`password` | 勾选自定义 Cron：`10 * * * *`<br>（或普通间隔：`265` 秒） |
+| **S1论坛签到** | `stage1st.har` | 每日自动完成新版 `muanyun_053`（签到挂机摸鱼版）插件签到，并输出签到状态、在线时长、总积分、升级剩余积分/预计天数及各项资产明细 | `username`、`password` | 默认间隔（每日 1 次） |
+
+---
+
+## 🚀 使用方法
+
+### 方式一：在 QD 面板订阅本仓库（推荐）
+
+1. 打开 QD 面板，依次进入：**我的模板** → **公共模板** → **已注册仓库** → **注册**
+2. 填入以下仓库配置：
+   - **仓库名**：`Qiandao-stage1st`
+   - **仓库 URL**：`https://github.com/Volundio/Qiandao-stage1st`
+   - **仓库分支**：`main`
+   - **启用加速**：按网络环境勾选
+3. 更新公共模板库后，搜索 **「S1论坛一小时挂机」** 或 **「S1论坛签到」** 点击添加，新建任务并填入论坛账号 `username` 与密码 `password`。
+
+### 方式二：手动导入 HAR 文件
+
+下载本仓库的 `stage1st-1h.har` 或 `stage1st.har`，在 QD 面板 **我的模板** 右侧点击 **`+`** 上传保存，随后点击该模板新建定时任务即可。
+
+---
+
+## ⚙️ 在线时长机制与挂机说明
+
+Stage1st 论坛总积分计算公式为：
+
+> **总积分** = `精华帖数 × 15000` + `在线时间(小时) × 10` + `人品 × 50`
+
+即每累计 **1 小时**在线时间增加 **10 总积分**（全天 24 小时满挂最多可增加 **240 总积分**）。
+
+### `stage1st-1h.har` 执行流程
+1. **登录并初始化会话**：使用账号密码登录，并立即访问一次 `forum.php` 触发页脚 `updatesession()`，使在线计时从 `0s` 即刻起算；
+2. **循环保活累加时长**：执行 **11 轮 × 303 秒**（每轮由 `12 × 25 秒 + 3 秒` 组成，总运行时长约 **3335 秒 ≈ 55.6 分钟**）。单轮间隔严格大于 300 秒，可无漂移覆盖 `5 / 10 / 15 / 20 / 25 / 30 分钟` 任意服务端 `oltimespan` 更新步长，同时预留约 4 分钟缓冲避免与下一整点 Cron 任务重叠；
+3. **心跳容错防中断**：中途 11 次 `forum.php` 保活心跳采用容错策略——若论坛偶发单次网关波动或超时（`HTTP 502/504/599`），不会中断整轮挂机；
+4. **积分核算与日志输出**：挂机结束时依次访问积分页（主动触发 `checkusergroup` 核算总积分与用户组升级）与个人资料页，输出如下格式日志：
+   ```text
+   挂机完成 | 用户:XXX(用户组) | 在线时长:XX小时 | 积分:XXXX(距下级还需XXX分/目标XXXX分)
+   ```
+
+---
+
+## ❓ 常见问题（FAQ）
+
+### 1. 新建「S1论坛一小时挂机」任务后，状态一直显示「正在准备执行任务」正常吗？
+**完全正常。**
+- 新建任务 1 秒后 QD 后台 `Worker` 就已经开始执行挂机循环了；
+- 由于单轮挂机耗时约 **55.6 分钟**，而 QD 只有在整轮模板全部执行完毕后才会写入日志并将成功次数加 `1`，因此在**第一轮跑完前**面板会一直显示「正在准备执行任务」；
+- **请勿重复点击「立即执行」**（否则会叠加多个并发挂机任务）。你可以通过查看论坛个人资料页中的「上次活动时间」（每 5 分钟刷新一次），或先运行一次秒级完成的 `stage1st.har` 签到模板来确认 QD Worker 工作正常。
+
+### 2. 还会出现旧版的 `HTTP 599: Operation timed out after 30001 milliseconds` 报错吗？
+旧版频繁报 `HTTP 599` 主要有两个原因，新版均已根除，**无需手动修改 QD 超时环境变量**：
+1. 旧版调用 `api://util/delay/30` 触碰了 QD 默认 `DELAY_MAX_TIMEOUT=29.9s` / `REQUEST_TIMEOUT=30.0s` 限制，新版已改为安全的 `api://util/delay/25` + `api://util/delay/3`；
+2. 论坛偶发单次响应慢时，新版中途保活心跳会自动容错继续下一轮，不再因单次抖动导致整小时任务失败重试。
+
+---
+
+## 🔧 主要修复与优化记录（v20261117）
+
+- **域名与协议升级**：迁移至 `https://stage1st.com/2b/`（Discuz! X3.5），移除旧版抓包残留的 HTTP/2 伪请求头（`:authority`、`:path` 等），完美兼容 QD 的 `PyCurl` 与 `SimpleAsyncHTTPClient`（`qd:lite`）双引擎。
+- **剔除失效与无权限页面**：移除无效的 `checknewpm`（服务端直接 `exit()` 不更新在线时长）、维护/限权的 `forum-75-1.html` 以及已删除的 `thread-334540-1-1.html`，改为全用户组可访问的轻量页面，无阅读权限的新注册账号也可稳定挂机。
+- **原生循环语法重构**：使用新版 QD 原生 `{% for ... in range(...) %}` 替代旧版通过正则拆分数字列表的冗余请求。
+- **新版签到插件适配**：将已停用的 `study_daily_attendance` 替换为论坛现行 `muanyun_053`（签到挂机摸鱼版）签到接口，并按 `qd-today/templates` 规范生成 [tpls_history.json](tpls_history.json) 内置 Base64 模板内容。
